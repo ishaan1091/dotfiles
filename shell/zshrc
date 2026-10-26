@@ -1,0 +1,25 @@
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="amuse"
+HIST_STAMPS="mm/dd/yyyy"
+
+# Only enable plugins that are installed on this machine.
+plugins=(git)
+for dotfiles_plugin in zsh-syntax-highlighting zsh-autosuggestions; do
+  if [[ -d "${ZSH_CUSTOM:-$ZSH/custom}/plugins/$dotfiles_plugin" ]]; then
+    plugins+=("$dotfiles_plugin")
+  fi
+done
+unset dotfiles_plugin
+[[ -f "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
+
+[[ -f "$HOME/.iterm2_shell_integration.zsh" ]] && source "$HOME/.iterm2_shell_integration.zsh"
+[[ -f "$HOME/.aliases" ]] && source "$HOME/.aliases"
+[[ -f "$HOME/.utils" ]] && source "$HOME/.utils"
+
+typeset -U path PATH
+path=("$HOME/.local/bin" $path /usr/local/go/bin "$HOME/go/bin")
+[[ -d /Library/TeX/texbin ]] && path=(/Library/TeX/texbin $path)
+export GOPATH="$HOME/go"
+
+# Machine-specific settings and credentials stay outside the repository.
+[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"

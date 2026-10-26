@@ -1,0 +1,7 @@
+[user]
+    name = Your Name
+    email = you@example.com
+
+# Put machine-specific credential settings here, if needed.
+# [http]
+#     cookiefile = ~/.gitcookies

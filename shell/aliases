@@ -1,0 +1,8 @@
+alias reload="source ~/.zshrc"
+alias cdp="cd ~/projects"
+alias cdplay="cd ~/projects/playground"
+alias playground="code ~/projects/playground"
+alias editrc="vim ~/.zshrc"
+alias ll="ls -l"
+alias la="ls -a"
+alias lla="ls -la"

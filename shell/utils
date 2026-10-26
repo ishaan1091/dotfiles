@@ -1,0 +1,72 @@
+# Clear playground (contents only, keep folder)
+clearplay() {
+  local dir=~/projects/playground
+  if [ -d "$dir" ]; then
+    rm -rf -- "$dir"/*(DN)
+    echo "✅ Cleared contents of $dir"
+  else
+    echo "❌ Playground directory not found: $dir"
+  fi
+}
+
+
+# Move all files (including hidden) into playground
+mvplay() {
+  local dir=~/projects/playground
+  mv -- *(DN) "$dir"/
+  echo "✅ Moved contents into $dir"
+}
+
+
+# Copy all files (including hidden) into playground
+cpplay() {
+  local dir=~/projects/playground
+  cp -R -- *(DN) "$dir"/
+  echo "✅ Copied contents into $dir"
+}
+
+
+# Setup C++ compile and run function using g++-15 which uses /opt/homebrew/bin/g++-15
+# Usage: cpp main.cpp
+cpp() {
+    src="$1"
+    base="${src%.cpp}"       # remove .cpp extension
+    g++-15 "$src" -o "$base" "${@:2}" && "./$base"
+}
+
+
+# Setup java compile and run function using javac
+# Usage: jrun main.java
+jrun() {
+    src="$1"
+
+    # Add .java if missing
+    if [[ "$src" != *.java ]]; then
+        src="${src}.java"
+    fi
+
+    # Strip .java for class name
+    base="${src%.java}"
+
+    # Compile & run
+    javac "$src" && java "$base"
+}
+
+
+# Go up n directories
+up() {
+  local count=$1
+  if [ -z "$count" ]; then count=1; fi
+  for i in $(seq 1 $count); do
+    cd ..
+  done
+}
+# usage -
+# up n -> to go up n directories
+# up -> to go up one directory
+
+
+# Function to directly mkdir and also cd in it in one command
+mkcd() {
+  mkdir -p "$1" && cd "$1"
+}
