@@ -1,6 +1,6 @@
 # Dotfiles
 
-Personal shell, Git, and Codex preferences, versioned in one place.
+Personal shell, Git, and shared agent preferences, versioned in one place.
 
 ## Install
 
@@ -22,7 +22,7 @@ already installed; the installer does not download dependencies.
 | `shell/aliases` | `~/.aliases` |
 | `shell/utils` | `~/.utils` |
 | `git/gitconfig` | `~/.gitconfig` |
-| `codex/AGENTS.md` | `~/.codex/AGENTS.md` |
+| `agents/AGENTS.md` | `~/.codex/AGENTS.md` |
 
 Edits to these installed symlinks update the repository directly. The installer
 skips links that already point to this checkout. Conflicting files and symlinks
@@ -56,8 +56,9 @@ or running another installer concurrently.
 Use `~/.zshrc.local`, `~/.zprofile.local`, and `~/.gitconfig.local` for settings
 specific to a machine. These are not managed by the repository.
 
-Codex's global style guide is `codex/AGENTS.md`. Restart Codex after changing
-it. A pre-existing `~/.codex/AGENTS.override.md` takes precedence over this file.
+Shared agent guidance lives in `agents/AGENTS.md`, so Claude and other harnesses
+can reuse the same source. The installer currently links it into Codex at
+`~/.codex/AGENTS.md`. Restart Codex after changing it. A pre-existing `~/.codex/AGENTS.override.md` takes precedence over this file.
 Review the initial preferences and tailor them as you work.
 
 ## Restore a previous file

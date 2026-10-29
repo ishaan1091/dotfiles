@@ -17,6 +17,7 @@
 - Do not commit, push, publish, or place orders unless requested.
 
 ## Maintaining these preferences
-- These are personal defaults shared across projects.
+- These are personal defaults shared across projects and agent harnesses.
+- Keep shared agent artifacts under agents/, rather than harness-specific folders.
 - Keep project-specific commands and architecture guidance in each project's AGENTS.md.
 - Update this file when I explicitly establish a lasting preference.

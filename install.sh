@@ -33,7 +33,7 @@ links=(
   'shell/aliases:.aliases'
   'shell/utils:.utils'
   'git/gitconfig:.gitconfig'
-  'codex/AGENTS.md:.codex/AGENTS.md'
+  'agents/AGENTS.md:.codex/AGENTS.md'
 )
 backup_root="$target_dir/.local/state/dotfiles"
 backup_dir=""

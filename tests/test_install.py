@@ -9,7 +9,7 @@ import unittest
 REPO = Path(__file__).resolve().parents[1]
 LINKS = {".zshrc": "shell/zshrc", ".zprofile": "shell/zprofile",
          ".aliases": "shell/aliases", ".utils": "shell/utils",
-         ".gitconfig": "git/gitconfig", ".codex/AGENTS.md": "codex/AGENTS.md"}
+         ".gitconfig": "git/gitconfig", ".codex/AGENTS.md": "agents/AGENTS.md"}
 GIT = '[user]\n name = Test User\n'
 
 
@@ -70,12 +70,12 @@ class InstallerTests(unittest.TestCase):
         self.assert_rejected_unchanged()
 
     def test_parent_symlink_into_repo(self):
-        original = (self.repo / 'codex/AGENTS.md').read_bytes()
-        (self.home / '.codex').symlink_to(self.repo / 'codex', target_is_directory=True)
+        original = (self.repo / 'agents/AGENTS.md').read_bytes()
+        (self.home / '.codex').symlink_to(self.repo / 'agents', target_is_directory=True)
         self.run_install()
         self.assert_installed()
-        self.assertEqual((self.repo / 'codex/AGENTS.md').read_bytes(), original)
-        self.assertFalse((self.repo / 'codex/AGENTS.md').is_symlink())
+        self.assertEqual((self.repo / 'agents/AGENTS.md').read_bytes(), original)
+        self.assertFalse((self.repo / 'agents/AGENTS.md').is_symlink())
 
     def test_identical_git_copy_and_repeat(self):
         for name in ('.gitconfig', '.gitconfig.local'):
