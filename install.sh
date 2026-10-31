@@ -34,6 +34,9 @@ links=(
   'shell/utils:.utils'
   'git/gitconfig:.gitconfig'
   'agents/AGENTS.md:.codex/AGENTS.md'
+  'agents/AGENTS.md:.claude/CLAUDE.md'
+  'agents/AGENTS.md:.config/opencode/AGENTS.md'
+  'agents/install-skills.sh:.local/bin/install-agent-skills'
 )
 backup_root="$target_dir/.local/state/dotfiles"
 backup_dir=""
@@ -61,6 +64,7 @@ for entry in "${links[@]}"; do
   [[ -f "$source" ]] || fail "Missing or non-file source: $source; no files changed."
   check_directory "$(dirname -- "$destination")"
 done
+
 check_directory "$backup_root"
 
 # Parse Git syntax rather than accepting a mention in a comment or wrong section.
@@ -138,6 +142,18 @@ fi
 for entry in "${links[@]}"; do
   link_file "${entry%%:*}" "${entry#*:}"
 done
+
+# The shared skill installer downloads explicitly listed public skills from
+# GitHub. Dry-run only validates the list, so it stays offline; fetch only when
+# the user applies dotfiles.
+printf 'Agent skills: %s\n' "$target_dir/.local/bin/install-agent-skills"
+if [[ "${DOTFILES_SKIP_AGENT_SKILLS:-0}" != 1 ]]; then
+  if "$apply"; then
+    DOTFILES_TARGET="$target_dir" "$target_dir/.local/bin/install-agent-skills"
+  else
+    DOTFILES_TARGET="$target_dir" "$repo_dir/agents/install-skills.sh" --dry-run
+  fi
+fi
 
 if ! "$apply"; then
   printf 'Dry run only. Run %s --apply to install.\n' "$0"

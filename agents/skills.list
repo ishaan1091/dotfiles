@@ -1,0 +1,3 @@
+# Public, reusable agent skills to keep installed from GitHub.
+# Format: OWNER/REPOSITORY [subdirectory] [skill-name]
+ishaan1091/publish-html . publish-html

@@ -4,8 +4,9 @@ Personal shell, Git, and shared agent preferences, versioned in one place.
 
 ## Install
 
-Keep this checkout at `~/projects/dotfiles` or another permanent location.
-The shell's `clearplay` helper deletes the contents of `~/projects/playground`.
+Keep this checkout at a permanent location. `shell/zshrc` resolves its own path
+as `$DOTFILES_DIR`, so the repository works from any checkout location. The
+shell's `clearplay` helper deletes the contents of `~/projects/playground`.
 
 ```sh
 ./install.sh             # preview changes
@@ -23,6 +24,9 @@ already installed; the installer does not download dependencies.
 | `shell/utils` | `~/.utils` |
 | `git/gitconfig` | `~/.gitconfig` |
 | `agents/AGENTS.md` | `~/.codex/AGENTS.md` |
+| `agents/AGENTS.md` | `~/.claude/CLAUDE.md` |
+| `agents/AGENTS.md` | `~/.config/opencode/AGENTS.md` |
+| `agents/install-skills.sh` | `~/.local/bin/install-agent-skills` |
 
 Edits to these installed symlinks update the repository directly. The installer
 skips links that already point to this checkout. Conflicting files and symlinks
@@ -56,10 +60,45 @@ or running another installer concurrently.
 Use `~/.zshrc.local`, `~/.zprofile.local`, and `~/.gitconfig.local` for settings
 specific to a machine. These are not managed by the repository.
 
-Shared agent guidance lives in `agents/AGENTS.md`, so Claude and other harnesses
-can reuse the same source. The installer currently links it into Codex at
-`~/.codex/AGENTS.md`. Restart Codex after changing it. A pre-existing `~/.codex/AGENTS.override.md` takes precedence over this file.
-Review the initial preferences and tailor them as you work.
+## Shared agent guidance
+
+`agents/AGENTS.md` is the single source of truth for Codex, Claude Code, and
+OpenCode. The installer links it to each harness's global instruction file:
+
+| Harness | Instruction file | Skills directory |
+| --- | --- | --- |
+| Codex | `~/.codex/AGENTS.md` | `~/.codex/skills` |
+| Claude Code | `~/.claude/CLAUDE.md` | `~/.claude/skills` |
+| OpenCode | `~/.config/opencode/AGENTS.md` | `~/.config/opencode/skills` |
+
+OpenCode also discovers `~/.agents/skills` and `~/.claude/skills` directly.
+Start a new agent session after changing the shared file. A pre-existing
+`~/.codex/AGENTS.override.md` takes precedence over the Codex link.
+
+The shared file includes the plan-first workflow and security baseline.
+Repository-specific maintenance guidance lives in this repository's
+`AGENTS.md`, which agents load automatically when working here. Plans belong in
+`~/agents/plans/` as `YYYY-MM-DD-<slug>.md`; they are personal working documents
+and are not tracked here.
+
+## Agent skills
+
+`agents/skills.list` lists public skills to install from GitHub, one per line:
+
+```text
+# OWNER/REPOSITORY SUBDIRECTORY SKILL_NAME
+ishaan1091/publish-html . publish-html
+```
+
+`./install.sh --apply` runs `install-agent-skills`, which clones or updates each
+skill into `~/.agents/skills/<name>` and links it into the harness directories
+above. The installer refuses dirty clones and unexpected remotes, and backs up
+unmanaged destinations under `~/.local/state/dotfiles/agent-skills/`. Set
+`DOTFILES_SKIP_AGENT_SKILLS=1` when you need an offline install.
+
+Use `install-agent-skills --dry-run` to validate the list without network or
+filesystem changes. Add only public, reviewed repositories; never list private
+repositories or credentials.
 
 ## Restore a previous file
 
@@ -73,10 +112,12 @@ The isolated installer tests require Python 3 and use temporary repository copie
 and target directories; they do not install anything into your home.
 
 ```sh
-bash -n install.sh
+bash -n install.sh agents/install-skills.sh
 zsh -n shell/zshrc shell/zprofile shell/aliases shell/utils
 python3 tests/test_install.py
-DOTFILES_TARGET="$(mktemp -d)" ./install.sh --apply
+TMP="$(mktemp -d)"
+DOTFILES_TARGET="$TMP" DOTFILES_SKIP_AGENT_SKILLS=1 ./install.sh --apply
+./agents/install-skills.sh --dry-run
 ```
 
 Only explicitly selected configuration files belong here. Do not copy entire

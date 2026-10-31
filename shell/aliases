@@ -1,8 +1,15 @@
-alias reload="source ~/.zshrc"
+alias reload='source "$HOME/.zshrc"'
 alias cdp="cd ~/projects"
 alias cdplay="cd ~/projects/playground"
 alias playground="code ~/projects/playground"
-alias editrc="vim ~/.zshrc"
 alias ll="ls -l"
 alias la="ls -a"
 alias lla="ls -la"
+
+# Edit the canonical files in the dotfiles checkout, not the installed symlinks.
+alias editrc='${EDITOR:-vim} "$DOTFILES_DIR/shell/zshrc"'
+alias editprofile='${EDITOR:-vim} "$DOTFILES_DIR/shell/zprofile"'
+alias editaliases='${EDITOR:-vim} "$DOTFILES_DIR/shell/aliases"'
+alias editutils='${EDITOR:-vim} "$DOTFILES_DIR/shell/utils"'
+alias editagents='${EDITOR:-vim} "$DOTFILES_DIR/agents/AGENTS.md"'
+alias editdots='cd "$DOTFILES_DIR"'

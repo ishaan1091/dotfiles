@@ -2,6 +2,12 @@ export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="amuse"
 HIST_STAMPS="mm/dd/yyyy"
 
+# Resolve the dotfiles repository through the installed symlink, so aliases and
+# helpers edit canonical files instead of replacing symlinks. This is derived,
+# not hardcoded, so the checkout can live anywhere.
+DOTFILES_DIR="${${(%):-%N}:A:h:h}"
+export DOTFILES_DIR
+
 # Only enable plugins that are installed on this machine.
 plugins=(git)
 for dotfiles_plugin in zsh-syntax-highlighting zsh-autosuggestions; do
@@ -19,6 +25,7 @@ unset dotfiles_plugin
 typeset -U path PATH
 path=("$HOME/.local/bin" $path /usr/local/go/bin "$HOME/go/bin")
 [[ -d /Library/TeX/texbin ]] && path=(/Library/TeX/texbin $path)
+[[ -d "$HOME/.opencode/bin" ]] && path=("$HOME/.opencode/bin" $path)
 export GOPATH="$HOME/go"
 
 # Machine-specific settings and credentials stay outside the repository.

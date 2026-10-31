@@ -9,7 +9,10 @@ import unittest
 REPO = Path(__file__).resolve().parents[1]
 LINKS = {".zshrc": "shell/zshrc", ".zprofile": "shell/zprofile",
          ".aliases": "shell/aliases", ".utils": "shell/utils",
-         ".gitconfig": "git/gitconfig", ".codex/AGENTS.md": "agents/AGENTS.md"}
+         ".gitconfig": "git/gitconfig", ".codex/AGENTS.md": "agents/AGENTS.md",
+         ".claude/CLAUDE.md": "agents/AGENTS.md",
+         ".config/opencode/AGENTS.md": "agents/AGENTS.md",
+         ".local/bin/install-agent-skills": "agents/install-skills.sh"}
 GIT = '[user]\n name = Test User\n'
 
 
@@ -36,7 +39,15 @@ class InstallerTests(unittest.TestCase):
 
     def run_install(self, mode='--apply', expected=0, **env):
         result = subprocess.run(['bash', str(self.repo / 'install.sh'), mode],
-                                env={**os.environ, 'DOTFILES_TARGET': str(self.home), **env},
+                                env={**os.environ, 'DOTFILES_TARGET': str(self.home),
+                                     'DOTFILES_SKIP_AGENT_SKILLS': '1', **env},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+        return result
+
+    def run_skills(self, mode='--dry-run', expected=0):
+        result = subprocess.run(['bash', str(self.repo / 'agents/install-skills.sh'), mode],
+                                env={**os.environ, 'DOTFILES_TARGET': str(self.home)},
                                 text=True, capture_output=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return result
@@ -150,11 +161,25 @@ class InstallerTests(unittest.TestCase):
         self.assertFalse((self.home / '.gitconfig.local').exists())
         self.assertEqual(old.read_text(), GIT)
 
+    def test_skill_list_dry_run_is_offline(self):
+        result = self.run_skills()
+        self.assertIn('Would install publish-html', result.stdout)
+        self.assertFalse((self.home / '.agents').exists())
+
+    def test_skill_list_rejects_unsafe_paths(self):
+        for entry in ('owner/repo .. evil', 'owner/repo . -evil',
+                      '../repo . evil', 'owner/repo sub ..'):
+            with self.subTest(entry=entry):
+                (self.repo / 'agents/skills.list').write_text(entry + '\n')
+                self.run_skills(expected=1)
+                self.assertFalse((self.home / '.agents').exists())
+
     def test_script_symlink_and_help(self):
         launcher = self.root / 'installer'
         launcher.symlink_to('repo/install.sh')
         result = subprocess.run(['bash', str(launcher), '--apply'],
-                                env={**os.environ, 'DOTFILES_TARGET': str(self.home)},
+                                env={**os.environ, 'DOTFILES_TARGET': str(self.home),
+                                     'DOTFILES_SKIP_AGENT_SKILLS': '1'},
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assert_installed()
