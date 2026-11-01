@@ -27,6 +27,8 @@ or tracking credentials.
 | Path | Purpose |
 | --- | --- |
 | `install.sh` | Allowlist-driven installer; dry-run by default |
+| `scripts/bootstrap.sh` | Validates/installs macOS prerequisites; dry-run by default |
+| `Brewfile`, `Brewfile.apps` | Declarative CLI and GUI dependencies |
 | `shell/zshrc`, `shell/zprofile`, `shell/aliases`, `shell/utils` | Zsh configuration |
 | `git/gitconfig` | Shared Git config; includes `~/.gitconfig.local` |
 | `git/gitconfig.local.example` | Identity template for new machines |
@@ -59,6 +61,26 @@ Keep the canonical copy under `agents/`, not inside a harness directory.
 - Preserve the first-run Git behavior: an existing `~/.gitconfig` is copied to
   `~/.gitconfig.local`; differing copies stop for manual merge.
 - Keep the installer idempotent and safe to rerun.
+
+## Bootstrap and prerequisites
+
+`scripts/bootstrap.sh` is the explicit dependency step. It validates first and
+only changes the system with `--apply`.
+
+- `./scripts/bootstrap.sh` — read-only check; exits nonzero if anything is missing.
+- `./scripts/bootstrap.sh --apply` — installs CLI essentials and shell tooling.
+- `./scripts/bootstrap.sh --apply --with-apps` — also installs GUI apps.
+
+Safety rules:
+
+- Do not make `install.sh` install packages implicitly. Linking dotfiles and
+  provisioning a machine are separate operations.
+- Keep every step idempotent and safe to rerun.
+- Never run `curl | sh`. Download to a temporary file, validate it, then run.
+- Never write Git identity, credentials, or `gh auth` state automatically.
+- Keep heavy GUI apps in `Brewfile.apps`, opt-in only.
+- Update `Brewfile`/`Brewfile.apps` instead of adding ad hoc `brew install`
+  commands to scripts.
 
 ## Adding or changing a managed file
 
@@ -103,8 +125,9 @@ preserve the safety guarantees above.
 ## Validation
 
 ```sh
-bash -n install.sh agents/install-skills.sh
+bash -n install.sh agents/install-skills.sh scripts/bootstrap.sh
 zsh -n shell/zshrc shell/zprofile shell/aliases shell/utils
 python3 tests/test_install.py
+./scripts/bootstrap.sh                      # read-only prerequisite check
 TMP="$(mktemp -d)" DOTFILES_TARGET="$TMP" DOTFILES_SKIP_AGENT_SKILLS=1 ./install.sh --apply
 ```

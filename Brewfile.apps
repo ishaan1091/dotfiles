@@ -1,0 +1,8 @@
+# Optional GUI applications. Install with: scripts/bootstrap.sh --apply --with-apps
+cask "iterm2"
+cask "maccy"
+cask "visual-studio-code"
+cask "postman"
+cask "intellij-idea-ce"
+cask "ngrok"
+cask "docker"

@@ -1,72 +1,123 @@
 # Clear playground (contents only, keep folder)
 clearplay() {
   local dir=~/projects/playground
-  if [ -d "$dir" ]; then
-    rm -rf -- "$dir"/*(DN)
-    echo "✅ Cleared contents of $dir"
-  else
-    echo "❌ Playground directory not found: $dir"
+  if [ ! -d "$dir" ]; then
+    echo "❌ Playground directory not found: $dir" >&2
+    return 1
   fi
+  rm -rf -- "$dir"/*(DN)
+  echo "✅ Cleared contents of $dir"
 }
-
 
 # Move all files (including hidden) into playground
 mvplay() {
   local dir=~/projects/playground
-  mv -- *(DN) "$dir"/
+  if [ ! -d "$dir" ]; then
+    echo "❌ Playground directory not found: $dir" >&2
+    return 1
+  fi
+  local files=(*(DN))
+  if (( ${#files[@]} == 0 )); then
+    echo "Nothing to move"
+    return 0
+  fi
+  mv -- "${files[@]}" "$dir"/
   echo "✅ Moved contents into $dir"
 }
-
 
 # Copy all files (including hidden) into playground
 cpplay() {
   local dir=~/projects/playground
-  cp -R -- *(DN) "$dir"/
+  if [ ! -d "$dir" ]; then
+    echo "❌ Playground directory not found: $dir" >&2
+    return 1
+  fi
+  local files=(*(DN))
+  if (( ${#files[@]} == 0 )); then
+    echo "Nothing to copy"
+    return 0
+  fi
+  cp -R -- "${files[@]}" "$dir"/
   echo "✅ Copied contents into $dir"
 }
 
-
-# Setup C++ compile and run function using g++-15 which uses /opt/homebrew/bin/g++-15
-# Usage: cpp main.cpp
+# Compile and run a C++ file. Uses $CXX, then g++-15, then g++.
+# Usage: cpp main.cpp [compiler args...]
 cpp() {
-    src="$1"
-    base="${src%.cpp}"       # remove .cpp extension
-    g++-15 "$src" -o "$base" "${@:2}" && "./$base"
-}
+  local src="${1:-}"
+  if [[ -z "$src" ]]; then
+    echo "Usage: cpp <file.cpp> [compiler args...]" >&2
+    return 2
+  fi
+  if [[ "$src" != *.cpp ]]; then
+    echo "Expected a .cpp file: $src" >&2
+    return 2
+  fi
+  if [[ ! -f "$src" ]]; then
+    echo "File not found: $src" >&2
+    return 1
+  fi
 
-
-# Setup java compile and run function using javac
-# Usage: jrun main.java
-jrun() {
-    src="$1"
-
-    # Add .java if missing
-    if [[ "$src" != *.java ]]; then
-        src="${src}.java"
+  local compiler="${CXX:-}"
+  if [[ -z "$compiler" ]]; then
+    if command -v g++-15 >/dev/null 2>&1; then
+      compiler=g++-15
+    elif command -v g++ >/dev/null 2>&1; then
+      compiler=g++
+    else
+      echo "No C++ compiler found. Install one with: brew install gcc" >&2
+      return 1
     fi
+  fi
 
-    # Strip .java for class name
-    base="${src%.java}"
-
-    # Compile & run
-    javac "$src" && java "$base"
+  local base="${src%.cpp}"
+  "$compiler" "$src" -o "$base" "${@:2}" && "./$base"
 }
 
+# Compile and run a Java file, including files inside subdirectories.
+# Usage: jrun Main.java or jrun src/Main.java
+jrun() {
+  local src="${1:-}"
+  if [[ -z "$src" ]]; then
+    echo "Usage: jrun <file.java>" >&2
+    return 2
+  fi
+  [[ "$src" == *.java ]] || src="${src}.java"
+  if [[ ! -f "$src" ]]; then
+    echo "File not found: $src" >&2
+    return 1
+  fi
+  if ! command -v javac >/dev/null 2>&1 || ! command -v java >/dev/null 2>&1; then
+    echo "Java not found. Install it with: brew install openjdk" >&2
+    return 1
+  fi
 
-# Go up n directories
+  local dir base
+  dir="$(dirname -- "$src")"
+  base="$(basename -- "$src" .java)"
+  javac "$src" && java -cp "$dir" "$base"
+}
+
+# Go up n directories.
+# Usage: up [count]
 up() {
-  local count=$1
-  if [ -z "$count" ]; then count=1; fi
-  for i in $(seq 1 $count); do
-    cd ..
+  local count="${1:-1}"
+  if [[ ! "$count" =~ ^[0-9]+$ ]] || (( count < 1 )); then
+    echo "Usage: up [positive count]" >&2
+    return 2
+  fi
+  local i
+  for ((i = 0; i < count; i++)); do
+    cd .. || return 1
   done
 }
-# usage -
-# up n -> to go up n directories
-# up -> to go up one directory
 
-
-# Function to directly mkdir and also cd in it in one command
+# Create a directory and enter it.
+# Usage: mkcd <directory>
 mkcd() {
-  mkdir -p "$1" && cd "$1"
+  if [[ -z "${1:-}" ]]; then
+    echo "Usage: mkcd <directory>" >&2
+    return 2
+  fi
+  mkdir -p -- "$1" && cd -- "$1"
 }

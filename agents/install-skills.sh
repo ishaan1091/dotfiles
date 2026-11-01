@@ -29,6 +29,15 @@ backup_root="$target_dir/.local/state/dotfiles/agent-skills"
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 
+require_command() {
+  command -v "$1" >/dev/null 2>&1 \
+    || fail "Missing required command: $1; run scripts/bootstrap.sh --apply, then retry."
+}
+for command_name in git readlink dirname mkdir mv ln date; do
+  require_command "$command_name"
+done
+unset command_name
+
 # Repository, directory, and skill names are single path components. Reject
 # traversal, option-like names, and anything outside the supported format.
 valid_component() {
@@ -64,6 +73,13 @@ if ! "$apply"; then
   done
   exit 0
 fi
+
+# Fail before mutating anything if a repository is unreachable or private.
+for ((i = 0; i < ${#entries[@]}; i += 3)); do
+  GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code \
+    "https://github.com/${entries[i]}.git" HEAD >/dev/null 2>&1 \
+    || fail "Cannot access https://github.com/${entries[i]}; check the repository name, network, and authentication."
+done
 
 mkdir -p "$root"
 for ((i = 0; i < ${#entries[@]}; i += 3)); do

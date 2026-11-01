@@ -1,0 +1,11 @@
+# CLI essentials installed by scripts/bootstrap.sh.
+brew "git"
+brew "jq"
+brew "wget"
+brew "htop"
+brew "gh"
+brew "go"
+brew "pyenv"
+brew "nvm"
+brew "openjdk"
+brew "node"

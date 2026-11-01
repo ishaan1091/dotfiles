@@ -19,6 +19,20 @@ unset dotfiles_plugin
 [[ -f "$ZSH/oh-my-zsh.sh" ]] && source "$ZSH/oh-my-zsh.sh"
 
 [[ -f "$HOME/.iterm2_shell_integration.zsh" ]] && source "$HOME/.iterm2_shell_integration.zsh"
+
+# Node and Python version managers, when installed.
+export NVM_DIR="$HOME/.nvm"
+for nvm_sh in "$NVM_DIR/nvm.sh" /opt/homebrew/opt/nvm/nvm.sh /usr/local/opt/nvm/nvm.sh; do
+  if [[ -s "$nvm_sh" ]]; then
+    source "$nvm_sh"
+    break
+  fi
+done
+unset nvm_sh
+if command -v pyenv >/dev/null 2>&1; then
+  eval "$(pyenv init -)"
+fi
+
 [[ -f "$HOME/.aliases" ]] && source "$HOME/.aliases"
 [[ -f "$HOME/.utils" ]] && source "$HOME/.utils"
 
@@ -29,4 +43,6 @@ path=("$HOME/.local/bin" $path /usr/local/go/bin "$HOME/go/bin")
 export GOPATH="$HOME/go"
 
 # Machine-specific settings and credentials stay outside the repository.
-[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+if [[ -f "$HOME/.zshrc.local" ]]; then
+  source "$HOME/.zshrc.local"
+fi

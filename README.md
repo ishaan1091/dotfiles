@@ -8,13 +8,15 @@ Keep this checkout at a permanent location. `shell/zshrc` resolves its own path
 as `$DOTFILES_DIR`, so the repository works from any checkout location. The
 shell's `clearplay` helper deletes the contents of `~/projects/playground`.
 
+On a new Mac:
+
 ```sh
-./install.sh             # preview changes
-./install.sh --apply     # back up conflicts and create symlinks
+./scripts/bootstrap.sh --apply   # validate and install missing prerequisites
+./install.sh --apply             # back up conflicts and create symlinks
 ```
 
-Requires Bash, Zsh, and Git. Oh My Zsh and its optional plugins are used when
-already installed; the installer does not download dependencies.
+`install.sh` only links files; it does not install packages or download
+dependencies. Use the bootstrap for machine provisioning.
 
 | Repository file | Installed location |
 | --- | --- |
@@ -39,6 +41,45 @@ If they differ, the installer stops before changing anything so you can merge
 them. An existing `.gitconfig` symlink is backed up with a warning, and its
 settings are not automatically copied into `.gitconfig.local`. On a fresh machine, copy `git/gitconfig.local.example` to
 `~/.gitconfig.local` and fill in your identity.
+
+## Bootstrap a new Mac
+
+`scripts/bootstrap.sh` follows the validation-first rule: it checks every
+prerequisite, skips what is already present, and only changes the machine with
+`--apply`.
+
+```sh
+./scripts/bootstrap.sh                       # read-only check
+./scripts/bootstrap.sh --apply               # CLI essentials and shell setup
+./scripts/bootstrap.sh --apply --with-apps   # also optional GUI apps
+```
+
+It validates and, when missing, installs or configures:
+
+| Check | Action with `--apply` |
+| --- | --- |
+| macOS | Refuses to run on other platforms |
+| Xcode Command Line Tools | Requests the Apple installer, then stops for completion |
+| Homebrew | Downloads the official installer, syntax-checks it, then runs it |
+| `Brewfile` packages | `brew bundle install --file Brewfile` |
+| `Brewfile.apps` packages | Only with `--with-apps` |
+| Oh My Zsh | `git clone`, without running its `.zshrc`-modifying installer |
+| `zsh-autosuggestions`, `zsh-syntax-highlighting` | `git clone` into the Oh My Zsh plugin directory |
+| iTerm2 shell integration | Downloads, syntax-checks, then installs |
+| Meslo LG M Powerline fonts | Copies from the official `powerline/fonts` repository |
+| VS Code CLI | Links the app's `code` binary into `~/.local/bin` |
+
+Safety properties:
+
+- Dry-run is the default and exits nonzero when something is missing.
+- Every step is idempotent and safe to rerun.
+- Remote installers are downloaded to a temporary file and validated before
+  execution; the script never uses `curl | sh`.
+- Git identity, `gh` authentication, macOS preferences, and Python/Node versions
+  are read-only checks with instructions. They are never written automatically.
+- Every run reports the status of each GUI app listed in `Brewfile.apps`.
+  Installing missing GUI apps requires `--apply --with-apps`.
+- The script is macOS-only and fails clearly elsewhere.
 
 ## Validation and recovery
 
@@ -112,9 +153,10 @@ The isolated installer tests require Python 3 and use temporary repository copie
 and target directories; they do not install anything into your home.
 
 ```sh
-bash -n install.sh agents/install-skills.sh
+bash -n install.sh agents/install-skills.sh scripts/bootstrap.sh
 zsh -n shell/zshrc shell/zprofile shell/aliases shell/utils
 python3 tests/test_install.py
+./scripts/bootstrap.sh
 TMP="$(mktemp -d)"
 DOTFILES_TARGET="$TMP" DOTFILES_SKIP_AGENT_SKILLS=1 ./install.sh --apply
 ./agents/install-skills.sh --dry-run

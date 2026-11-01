@@ -43,6 +43,17 @@ backup_dir=""
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 
+require_command() {
+  command -v "$1" >/dev/null 2>&1 \
+    || fail "Missing required command: $1; run scripts/bootstrap.sh --apply, then retry."
+}
+for command_name in bash git readlink dirname mkdir mktemp mv cp cmp ln; do
+  require_command "$command_name"
+done
+unset command_name
+command -v zsh >/dev/null 2>&1 \
+  || printf 'Warning: zsh not found; shell configuration will not take effect.\n' >&2
+
 # Missing ancestors can be created later. Any existing ancestor must be a
 # directory; explicitly detect dangling symlinks rather than treating them as absent.
 check_directory() {

@@ -4,10 +4,13 @@ These are my defaults across projects and agent harnesses (Codex, Claude Code,
 OpenCode, and similar). They are intentionally harness-neutral. Project-specific
 commands and architecture belong in that project's own `AGENTS.md`.
 
-## Operating model: plan, delegate, review
+## When asked to create a plan: plan, delegate, review
 
-- Always create a written plan before implementation. Scale its length to the
-  task, but do not skip it.
+When asked to create a plan explicitly, then follow the
+workflow below. Outside this workflow, use your judgment about subagents;
+these instructions do not require or prohibit delegation for other tasks.
+
+- Scale the written plan's length to the task.
 - Store plans in `~/agents/plans/` as Markdown. Name them
   `YYYY-MM-DD-<kebab-case-slug>.md`. Update the plan as work progresses.
 - If a plan already exists for the task, iterate on that file instead of
@@ -60,6 +63,25 @@ When reviewing delegated work:
 - Run checks appropriate to the change and report what was verified.
 - Do not commit, push, publish, deploy, or place orders unless requested.
 - Never force-push, rewrite shared history, or discard uncommitted work.
+
+## Prerequisite validation
+
+- Before running or writing setup/install scripts, validate the OS, required
+  commands, files, directories, permissions, and network access.
+- Fail with a clear message that names the missing item and the fix. Do not
+  continue with a partially valid environment.
+- Prefer check → act → re-check. Make every action idempotent so a rerun is safe.
+- Install missing dependencies only when the task authorizes system changes.
+  Use the platform package manager and an explicit opt-in flag; never install
+  heavy or GUI software silently.
+- Do not pipe unverified remote content into a shell. Download it to a temporary
+  file, validate it, and only then run it when authorized.
+- Scripts should default to dry-run, back up conflicts, and never overwrite or
+  delete silently.
+- Leave personal or security state (identity, credentials, auth, OS preferences)
+  as a read-only check with instructions. Do not invent it.
+- After fixing missing prerequisites, rerun the validation and report exactly
+  what is now verified and what still needs manual action.
 
 ## Security baseline
 

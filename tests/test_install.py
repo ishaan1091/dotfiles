@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -173,6 +174,119 @@ class InstallerTests(unittest.TestCase):
                 (self.repo / 'agents/skills.list').write_text(entry + '\n')
                 self.run_skills(expected=1)
                 self.assertFalse((self.home / '.agents').exists())
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS bootstrap')
+    def test_bootstrap_help_and_invalid_flag(self):
+        for flag in ('-h', '--help'):
+            result = subprocess.run(['bash', str(self.repo / 'scripts/bootstrap.sh'), flag],
+                                    env={**os.environ, 'HOME': str(self.home)},
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Usage:', result.stdout)
+        result = subprocess.run(['bash', str(self.repo / 'scripts/bootstrap.sh'), '--bogus'],
+                                env={**os.environ, 'HOME': str(self.home)},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 2)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS bootstrap')
+    def test_bootstrap_dry_run_does_not_install(self):
+        result = subprocess.run(['bash', str(self.repo / 'scripts/bootstrap.sh')],
+                                env={**os.environ, 'HOME': str(self.home), 'SHELL': '/bin/zsh'},
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn('Summary', result.stdout)
+        self.assertIn('GUI applications', result.stdout)
+        for app in ('iterm2', 'maccy', 'visual-studio-code', 'postman',
+                    'intellij-idea-ce', 'docker', 'ngrok'):
+            self.assertRegex(result.stdout, rf'(?m)^  (?:ok|miss) +{app}$')
+        self.assertFalse((self.home / '.oh-my-zsh').exists())
+        self.assertFalse((self.home / '.iterm2_shell_integration.zsh').exists())
+        self.assertFalse((self.home / '.local/bin/code').exists())
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS bootstrap')
+    def test_bootstrap_requires_working_java_and_javac(self):
+        # Keep discovery and version checks independent of the host's JDK,
+        # Homebrew, network, and authentication state.
+        bin_dir = self.root / 'bin'
+        bin_dir.mkdir()
+        (bin_dir / 'dirname').symlink_to(shutil.which('dirname'))
+        for command in ('curl', 'xcode-select', 'brew', 'git', 'jq', 'wget',
+                        'htop', 'gh', 'go', 'pyenv', 'node', 'code'):
+            stub = bin_dir / command
+            stub.write_text('#!/bin/bash\nexit 0\n')
+            stub.chmod(0o755)
+        uname = bin_dir / 'uname'
+        uname.write_text('#!/bin/bash\nprintf "Darwin\\n"\n')
+        uname.chmod(0o755)
+        (self.home / '.nvm').mkdir()
+        (self.home / '.nvm/nvm.sh').write_text('# installed\n')
+        before = snapshot(self.home)
+        for java_status, javac_status, missing in (
+                (0, 0, None), (1, 0, 'java'), (0, 1, 'javac'),
+                (None, 0, 'java'), (0, None, 'javac')):
+            with self.subTest(java=java_status, javac=javac_status):
+                for command, status in (('java', java_status), ('javac', javac_status)):
+                    stub = bin_dir / command
+                    if stub.exists():
+                        stub.unlink()
+                    if status is not None:
+                        stub.write_text('#!/bin/bash\n[[ "$1" == -version ]] || exit 2\n'
+                                        f'exit {status}\n')
+                        stub.chmod(0o755)
+                result = subprocess.run(
+                    [shutil.which('bash'), str(self.repo / 'scripts/bootstrap.sh'), '--dry-run'],
+                    env={'HOME': str(self.home), 'PATH': str(bin_dir), 'SHELL': '/bin/zsh'},
+                    text=True, capture_output=True)
+                # Other setup files are intentionally absent in this temporary home.
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                if missing:
+                    self.assertIn(f'  miss  CLI tools: {missing}\n', result.stdout)
+                else:
+                    self.assertIn('  ok    CLI tools\n', result.stdout)
+                self.assertEqual(snapshot(self.home), before)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS bootstrap')
+    def test_bootstrap_gui_install_requires_explicit_opt_in(self):
+        bin_dir = self.root / 'bin'
+        bin_dir.mkdir()
+        (bin_dir / 'dirname').symlink_to(shutil.which('dirname'))
+        # Missing ngrok guarantees at least one GUI item needs attention.
+        for command in ('curl', 'xcode-select', 'git', 'jq', 'wget', 'htop',
+                        'gh', 'go', 'pyenv', 'node', 'java', 'javac', 'code'):
+            stub = bin_dir / command
+            stub.write_text('#!/bin/bash\nexit 0\n')
+            stub.chmod(0o755)
+        uname = bin_dir / 'uname'
+        uname.write_text('#!/bin/bash\nprintf "Darwin\\n"\n')
+        uname.chmod(0o755)
+        brew = bin_dir / 'brew'
+        brew.write_text('#!/bin/bash\nif [[ "$1" == bundle ]]; then\n'
+                        '  printf "%s\\n" "$*" >> "$REVIEW_BREW_LOG"\nfi\n')
+        brew.chmod(0o755)
+        # A known shell conflict stops apply runs before later filesystem changes.
+        (self.home / '.oh-my-zsh').mkdir()
+        (self.home / '.nvm').mkdir()
+        (self.home / '.nvm/nvm.sh').write_text('# installed\n')
+        log = self.root / 'brew.log'
+        before = snapshot(self.home)
+        for mode in (('--dry-run',), ('--dry-run', '--with-apps'),
+                     ('--apply',), ('--apply', '--with-apps')):
+            with self.subTest(mode=mode):
+                if log.exists():
+                    log.unlink()
+                result = subprocess.run(
+                    [shutil.which('bash'), str(self.repo / 'scripts/bootstrap.sh'), *mode],
+                    env={'HOME': str(self.home), 'PATH': str(bin_dir),
+                         'SHELL': '/bin/zsh', 'REVIEW_BREW_LOG': str(log)},
+                    text=True, capture_output=True)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertIn('  miss  ngrok\n', result.stdout)
+                if mode == ('--apply', '--with-apps'):
+                    self.assertEqual(log.read_text(),
+                                     f'bundle install --file {self.repo.resolve()}/Brewfile.apps\n')
+                else:
+                    self.assertFalse(log.exists())
+                self.assertEqual(snapshot(self.home), before)
 
     def test_script_symlink_and_help(self):
         launcher = self.root / 'installer'
