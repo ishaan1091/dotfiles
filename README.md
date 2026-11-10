@@ -29,6 +29,9 @@ dependencies. Use the bootstrap for machine provisioning.
 | `agents/AGENTS.md` | `~/.claude/CLAUDE.md` |
 | `agents/AGENTS.md` | `~/.config/opencode/AGENTS.md` |
 | `agents/install-skills.sh` | `~/.local/bin/install-agent-skills` |
+| `agents/memory/` | `~/.claude/memory` (native directory link) |
+| `agents/integrations/claude-settings.json` | `~/.claude/settings.json` |
+| `agents/integrations/opencode.json` | `~/.config/opencode/opencode.json` |
 
 Edits to these installed symlinks update the repository directly. The installer
 skips links that already point to this checkout. Conflicting files and symlinks
@@ -121,6 +124,30 @@ Repository-specific maintenance guidance lives in this repository's
 `AGENTS.md`, which agents load automatically when working here. Plans belong in
 `~/agents/plans/` as `YYYY-MM-DD-<slug>.md`; they are personal working documents
 and are not tracked here.
+
+## Shared agent memory
+
+Shared memory lives at `$DOTFILES_DIR/agents/memory`. Use this path in guidance
+and tools. The installed `shell/zshrc` derives and exports `DOTFILES_DIR` from
+its symlink, so a new shell points to the current checkout without a fixed
+machine path. Start agents from that environment. If a GUI or remote session
+has no `DOTFILES_DIR`, provide the checkout root explicitly before launching it.
+
+| Harness | Integration |
+| --- | --- |
+| Codex | Shared guidance reads/writes `$DOTFILES_DIR/agents/memory` |
+| OpenCode | Native `{env:DOTFILES_DIR}` substitution loads the index and profile from that same directory |
+| Claude Code | `autoMemoryDirectory` selects `~/.claude/memory`; the installer links this native entry point to the checkout's `agents/memory` directory |
+
+Claude's setting documents absolute and `~/` paths, not shell-variable
+expansion. Its fixed native entry point is confined to the integration config
+and installer. It is not an alternative canonical root. Reapply the installer
+and start a new shell after moving the checkout.
+
+The installer backs up existing integration configs before linking; it does
+not merge their contents. Preserve local settings and providers before switching
+to the managed files. Keep credentials outside repository-backed settings.
+See [the memory workflow](agents/memory/README.md) for update rules and limits.
 
 ## Agent skills
 

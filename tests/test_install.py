@@ -1,5 +1,6 @@
 """Exercise the real installer in isolated homes and repository copies."""
 import os
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -13,7 +14,10 @@ LINKS = {".zshrc": "shell/zshrc", ".zprofile": "shell/zprofile",
          ".gitconfig": "git/gitconfig", ".codex/AGENTS.md": "agents/AGENTS.md",
          ".claude/CLAUDE.md": "agents/AGENTS.md",
          ".config/opencode/AGENTS.md": "agents/AGENTS.md",
-         ".local/bin/install-agent-skills": "agents/install-skills.sh"}
+         ".local/bin/install-agent-skills": "agents/install-skills.sh",
+         ".claude/memory": "agents/memory",
+         ".claude/settings.json": "agents/integrations/claude-settings.json",
+         ".config/opencode/opencode.json": "agents/integrations/opencode.json"}
 GIT = '[user]\n name = Test User\n'
 
 
@@ -67,6 +71,62 @@ class InstallerTests(unittest.TestCase):
         (self.home / '.aliases').write_text('keep me')
         (self.repo / 'shell/aliases').unlink()
         self.assert_rejected_unchanged()
+
+    def test_missing_memory_index(self):
+        (self.repo / 'agents/memory/MEMORY.md').unlink()
+        self.assert_rejected_unchanged()
+
+    def test_memory_links_share_writes_and_preserve_conflicts(self):
+        destination = '.claude/memory'
+        path = self.home / destination
+        path.mkdir(parents=True)
+        (path / 'original.md').write_text(destination)
+        settings = self.home / '.claude/settings.json'
+        settings.write_text('{"existing": true}\n')
+        before = snapshot(self.home)
+        self.run_install('--dry-run')
+        self.assertEqual(snapshot(self.home), before)
+        self.run_install()
+        self.assert_installed()
+        backup = next((self.home / '.local/state/dotfiles').glob('backup.*'))
+        self.assertEqual((backup / destination / 'original.md').read_text(), destination)
+        self.assertEqual((backup / '.claude/settings.json').read_text(), '{"existing": true}\n')
+        (self.home / '.claude/memory/learned.md').write_text('shared fact\n')
+        self.assertEqual((self.repo / 'agents/memory/learned.md').read_text(), 'shared fact\n')
+        before = snapshot(self.home)
+        result = self.run_install()
+        self.assertEqual(result.stdout.count('Already linked:'), len(LINKS))
+        self.assertEqual(snapshot(self.home), before)
+
+    def test_memory_configuration_points_to_shared_files(self):
+        self.run_install()
+        claude = json.loads((self.home / '.claude/settings.json').read_text())
+        claude_memory = self.home / claude['autoMemoryDirectory'].removeprefix('~/')
+        self.assertTrue(claude_memory.samefile(self.repo / 'agents/memory'))
+        opencode = json.loads((self.home / '.config/opencode/opencode.json').read_text())
+        for path in opencode['instructions']:
+            self.assertTrue(path.startswith('{env:DOTFILES_DIR}/agents/memory/'))
+            resolved = Path(path.replace('{env:DOTFILES_DIR}', str(self.repo)))
+            self.assertTrue(resolved.samefile(self.repo / 'agents/memory' / resolved.name))
+        self.assertFalse((self.home / '.agents/memory').exists())
+        # Never redirect generated Codex state into the curated folder.
+        for name in ('memories', 'memories_v2'):
+            self.assertFalse((self.home / '.codex' / name).exists())
+
+    def test_memory_paths_follow_relocated_checkout(self):
+        moved_repo = self.root / 'checkout with spaces'
+        self.repo.rename(moved_repo)
+        self.repo = moved_repo
+        self.run_install(DOTFILES_DIR='/obsolete/checkout')
+        self.assert_installed()
+        claude = json.loads((self.home / '.claude/settings.json').read_text())
+        native_path = self.home / claude['autoMemoryDirectory'][2:]
+        self.assertTrue(native_path.samefile(self.repo / 'agents/memory'))
+        opencode = json.loads((self.home / '.config/opencode/opencode.json').read_text())
+        for value in opencode['instructions']:
+            path = Path(value.replace('{env:DOTFILES_DIR}', str(self.repo)))
+            self.assertTrue(path.is_file())
+            self.assertTrue(path.samefile(self.repo / 'agents/memory' / path.name))
 
     def test_parent_is_file(self):
         (self.home / '.codex').write_text('keep me')

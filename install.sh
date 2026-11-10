@@ -37,6 +37,9 @@ links=(
   'agents/AGENTS.md:.claude/CLAUDE.md'
   'agents/AGENTS.md:.config/opencode/AGENTS.md'
   'agents/install-skills.sh:.local/bin/install-agent-skills'
+  'agents/memory:.claude/memory'
+  'agents/integrations/claude-settings.json:.claude/settings.json'
+  'agents/integrations/opencode.json:.config/opencode/opencode.json'
 )
 backup_root="$target_dir/.local/state/dotfiles"
 backup_dir=""
@@ -72,7 +75,14 @@ already_linked() { [[ "$1" -ef "$2" ]]; }
 for entry in "${links[@]}"; do
   source="$repo_dir/${entry%%:*}"
   destination="$target_dir/${entry#*:}"
-  [[ -f "$source" ]] || fail "Missing or non-file source: $source; no files changed."
+  # Shared curated memory is the sole directory-link exception. Never link a
+  # harness's generated state or an entire application configuration directory.
+  if [[ "${entry%%:*}" == agents/memory ]]; then
+    [[ -d "$source" && -f "$source/MEMORY.md" && -f "$source/about-me.md" ]] \
+      || fail "Missing memory directory, index, or profile: $source; no files changed."
+  else
+    [[ -f "$source" ]] || fail "Missing or non-file source: $source; no files changed."
+  fi
   check_directory "$(dirname -- "$destination")"
 done
 

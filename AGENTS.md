@@ -20,6 +20,8 @@ or tracking credentials.
 - Keep the installer safe to rerun; back up conflicts and never overwrite silently.
 - Validate shell syntax and exercise installer changes against a temporary target.
 - Keep shared agent guidance in `agents/AGENTS.md`; this file governs this repository.
+- Resolve shared artifact paths from `$DOTFILES_DIR`. Fixed harness paths belong
+  only at installer/native integration boundaries; do not add convenience aliases.
 - Preserve the existing allowlist-driven installer and its isolated tests.
 
 ## Layout
@@ -33,6 +35,8 @@ or tracking credentials.
 | `git/gitconfig` | Shared Git config; includes `~/.gitconfig.local` |
 | `git/gitconfig.local.example` | Identity template for new machines |
 | `agents/AGENTS.md` | Global guidance linked into every harness |
+| `agents/memory/` | Shared context at `$DOTFILES_DIR/agents/memory`; linked into Claude's native entry point |
+| `agents/integrations/` | Explicit Claude and OpenCode memory configuration files |
 | `agents/skills.list` | Public skills to install from GitHub |
 | `agents/install-skills.sh` | Installs skills and creates harness links |
 | `tests/test_install.py` | Isolated installer tests |
@@ -55,7 +59,8 @@ Keep the canonical copy under `agents/`, not inside a harness directory.
 - `DOTFILES_TARGET` overrides the target home for tests and staging.
 - `DOTFILES_SKIP_AGENT_SKILLS=1` skips network skill installation.
 - The allowlist is the `links` array in `install.sh`. Add explicit files there;
-  never copy whole application directories.
+  never copy whole application directories. `agents/memory/` is the sole
+  directory-link exception; never link a generated harness memory store.
 - Preflight runs in both modes before any change. Conflicting files are moved
   under `~/.local/state/dotfiles/backup.*`, never silently overwritten.
 - Preserve the first-run Git behavior: an existing `~/.gitconfig` is copied to
