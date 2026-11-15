@@ -37,9 +37,6 @@ links=(
   'agents/AGENTS.md:.claude/CLAUDE.md'
   'agents/AGENTS.md:.config/opencode/AGENTS.md'
   'agents/install-skills.sh:.local/bin/install-agent-skills'
-  'agents/memory:.claude/memory'
-  'agents/integrations/claude-settings.json:.claude/settings.json'
-  'agents/integrations/opencode.json:.config/opencode/opencode.json'
 )
 backup_root="$target_dir/.local/state/dotfiles"
 backup_dir=""
@@ -50,7 +47,7 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 \
     || fail "Missing required command: $1; run scripts/bootstrap.sh --apply, then retry."
 }
-for command_name in bash git readlink dirname mkdir mktemp mv cp cmp ln; do
+for command_name in bash git python3 readlink dirname mkdir mktemp mv cp cmp ln; do
   require_command "$command_name"
 done
 unset command_name
@@ -75,18 +72,15 @@ already_linked() { [[ "$1" -ef "$2" ]]; }
 for entry in "${links[@]}"; do
   source="$repo_dir/${entry%%:*}"
   destination="$target_dir/${entry#*:}"
-  # Shared curated memory is the sole directory-link exception. Never link a
-  # harness's generated state or an entire application configuration directory.
-  if [[ "${entry%%:*}" == agents/memory ]]; then
-    [[ -d "$source" && -f "$source/MEMORY.md" && -f "$source/about-me.md" ]] \
-      || fail "Missing memory directory, index, or profile: $source; no files changed."
-  else
-    [[ -f "$source" ]] || fail "Missing or non-file source: $source; no files changed."
-  fi
+  [[ -f "$source" ]] || fail "Missing or non-file source: $source; no files changed."
   check_directory "$(dirname -- "$destination")"
 done
 
 check_directory "$backup_root"
+[[ -f "$repo_dir/scripts/seed-agent-memory.py" ]] \
+  || fail 'Missing scripts/seed-agent-memory.py; no files changed.'
+# Validate the seed and both local configurations before any installation writes.
+python3 "$repo_dir/scripts/seed-agent-memory.py" --target "$target_dir" --dry-run
 
 # Parse Git syntax rather than accepting a mention in a comment or wrong section.
 # --no-includes prevents reading the user's local file during this check.
@@ -163,6 +157,10 @@ fi
 for entry in "${links[@]}"; do
   link_file "${entry%%:*}" "${entry#*:}"
 done
+
+if "$apply"; then
+  python3 "$repo_dir/scripts/seed-agent-memory.py" --target "$target_dir" --apply
+fi
 
 # The shared skill installer downloads explicitly listed public skills from
 # GitHub. Dry-run only validates the list, so it stays offline; fetch only when

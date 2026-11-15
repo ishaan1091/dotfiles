@@ -113,6 +113,10 @@ if command -v brew >/dev/null 2>&1; then
       missing_tools+=("$tool")
     fi
   done
+  if ! command -v python3 >/dev/null 2>&1 \
+    || ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1; then
+    missing_tools+=('python3 (3.11+)')
+  fi
   if [[ ! -s "$HOME/.nvm/nvm.sh" && ! -d /opt/homebrew/opt/nvm && ! -d /usr/local/opt/nvm ]]; then
     missing_tools+=('nvm')
   fi

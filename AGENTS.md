@@ -35,8 +35,8 @@ or tracking credentials.
 | `git/gitconfig` | Shared Git config; includes `~/.gitconfig.local` |
 | `git/gitconfig.local.example` | Identity template for new machines |
 | `agents/AGENTS.md` | Global guidance linked into every harness |
-| `agents/memory/` | Shared context at `$DOTFILES_DIR/agents/memory`; linked into Claude's native entry point |
-| `agents/integrations/` | Explicit Claude and OpenCode memory configuration files |
+| `agents/memory/` | Starter profile copied once into independent Codex/OpenCode `memory.md` files |
+| `scripts/seed-agent-memory.py` | Preflights and initializes local memory and loading config |
 | `agents/skills.list` | Public skills to install from GitHub |
 | `agents/install-skills.sh` | Installs skills and creates harness links |
 | `tests/test_install.py` | Isolated installer tests |
@@ -59,8 +59,12 @@ Keep the canonical copy under `agents/`, not inside a harness directory.
 - `DOTFILES_TARGET` overrides the target home for tests and staging.
 - `DOTFILES_SKIP_AGENT_SKILLS=1` skips network skill installation.
 - The allowlist is the `links` array in `install.sh`. Add explicit files there;
-  never copy whole application directories. `agents/memory/` is the sole
-  directory-link exception; never link a generated harness memory store.
+  never copy whole application directories or link live agent memory.
+- Starter context under `agents/memory/` changes only on explicit request.
+  Setup seeds only missing Codex/OpenCode `memory.md` files and configures their
+  local loading. Preserve existing memory, unrelated config, and rerun safety;
+  do not synchronize local memories or add memory policy to the shared guide.
+- Python 3.11+ is required for native config parsing; bootstrap installs it.
 - Preflight runs in both modes before any change. Conflicting files are moved
   under `~/.local/state/dotfiles/backup.*`, never silently overwritten.
 - Preserve the first-run Git behavior: an existing `~/.gitconfig` is copied to

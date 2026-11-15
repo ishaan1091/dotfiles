@@ -15,8 +15,9 @@ On a new Mac:
 ./install.sh --apply             # back up conflicts and create symlinks
 ```
 
-`install.sh` only links files; it does not install packages or download
-dependencies. Use the bootstrap for machine provisioning.
+`install.sh` links configuration and initializes independent agent memory.
+Package installation belongs to the bootstrap. Memory setup requires Python
+3.11 or later, provided by the CLI Brewfile.
 
 | Repository file | Installed location |
 | --- | --- |
@@ -29,9 +30,7 @@ dependencies. Use the bootstrap for machine provisioning.
 | `agents/AGENTS.md` | `~/.claude/CLAUDE.md` |
 | `agents/AGENTS.md` | `~/.config/opencode/AGENTS.md` |
 | `agents/install-skills.sh` | `~/.local/bin/install-agent-skills` |
-| `agents/memory/` | `~/.claude/memory` (native directory link) |
-| `agents/integrations/claude-settings.json` | `~/.claude/settings.json` |
-| `agents/integrations/opencode.json` | `~/.config/opencode/opencode.json` |
+| `agents/memory/about-me.md` | `~/.codex/memory.md`, `~/.config/opencode/memory.md` (copied once) |
 
 Edits to these installed symlinks update the repository directly. The installer
 skips links that already point to this checkout. Conflicting files and symlinks
@@ -125,29 +124,31 @@ Repository-specific maintenance guidance lives in this repository's
 `~/agents/plans/` as `YYYY-MM-DD-<slug>.md`; they are personal working documents
 and are not tracked here.
 
-## Shared agent memory
+## Starter context and local memory
 
-Shared memory lives at `$DOTFILES_DIR/agents/memory`. Use this path in guidance
-and tools. The installed `shell/zshrc` derives and exports `DOTFILES_DIR` from
-its symlink, so a new shell points to the current checkout without a fixed
-machine path. Start agents from that environment. If a GUI or remote session
-has no `DOTFILES_DIR`, provide the checkout root explicitly before launching it.
+`./install.sh --apply` automatically initializes Codex and OpenCode from
+`$DOTFILES_DIR/agents/memory/about-me.md`. No manual import prompt is needed.
 
-| Harness | Integration |
-| --- | --- |
-| Codex | Shared guidance reads/writes `$DOTFILES_DIR/agents/memory` |
-| OpenCode | Native `{env:DOTFILES_DIR}` substitution loads the index and profile from that same directory |
-| Claude Code | `autoMemoryDirectory` selects `~/.claude/memory`; the installer links this native entry point to the checkout's `agents/memory` directory |
+| Harness | Independent copy | Session loading |
+| --- | --- | --- |
+| Codex | `~/.codex/memory.md` | Local `config.toml` instructs Codex to read its file at session start |
+| OpenCode | `~/.config/opencode/memory.md` | Local `opencode.json` loads its file through `instructions` |
 
-Claude's setting documents absolute and `~/` paths, not shell-variable
-expansion. Its fixed native entry point is confined to the integration config
-and installer. It is not an alternative canonical root. Reapply the installer
-and start a new shell after moving the checkout.
+These are real copies. Setup creates them only when missing; existing files,
+including local edits, are never refreshed from the starter or another harness.
+The shared `agents/AGENTS.md` remains generic and has no memory setup policy.
+Other harnesses are not seeded or configured by this step.
 
-The installer backs up existing integration configs before linking; it does
-not merge their contents. Preserve local settings and providers before switching
-to the managed files. Keep credentials outside repository-backed settings.
-See [the memory workflow](agents/memory/README.md) for update rules and limits.
+Setup validates memory sources and configuration before changing anything.
+It preserves existing Codex developer instructions and OpenCode instruction
+entries, backs up changed local configs under `~/.local/state/dotfiles/`, and
+avoids duplicate loading entries on reruns. Source-linked memory files and
+invalid configuration stop setup before installation writes. JSONC configs
+retain their comments and existing settings.
+
+Start new agent sessions after setup. These files provide initial personal
+context without enabling or replacing Codex's generated memory system.
+See [the starter-context guide](agents/memory/README.md) for details.
 
 ## Agent skills
 
@@ -176,7 +177,7 @@ Git settings are also preserved in `~/.gitconfig.local`.
 
 ## Validate
 
-The isolated installer tests require Python 3 and use temporary repository copies
+The isolated installer tests require Python 3.11+ and use temporary repository copies
 and target directories; they do not install anything into your home.
 
 ```sh

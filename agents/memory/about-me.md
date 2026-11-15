@@ -80,9 +80,17 @@ products that deliver measurable value.
 - Born in 2001; hometown Delhi. Based in Bengaluru, Karnataka
 - Wants to grow into a senior engineering role, take on broader ownership, and
   build products with real users and measurable impact.
-- Wants a stronger peer network and is considering a team or job change,
-  AI-focused work, and opportunities in the UK, US, or Singapore. These are
-  possibilities, not a decision to move or leave his current role.
+- Career goal clarified on 2026-11-10: wants to join a frontier or other
+  strong AI lab primarily to work among excellent peers; OpenAI and Anthropic
+  are examples, not an exclusive list. No particular research title was chosen.
+- Relocation preference clarified on 2026-11-10: prefers moving outside India,
+  especially to the US, UK, or Singapore, and is open to anywhere worldwide.
+  This is a preference, not a decision to leave his current role.
+- ML starting point as of 2026-11-10: considers himself a beginner, understands
+  basic algorithms, has little hands-on ML implementation experience, and is
+  revisiting Google's Machine Learning Crash Course.
+- Study time as of 2026-11-10: budget for five hours per week, with eight hours
+  per week as an upper bound.
 - Wants to start his own business eventually. His stated long-term financial
   ambition is ₹100 crore by age 30; treat this as an aspiration, not current wealth.
 - Wants stronger fundamentals in distributed systems, databases, LLMs, applied
@@ -105,3 +113,4 @@ products that deliver measurable value.
 
 - [Updated resume supplied by the user](https://github.com/ishaan1091/Resume/blob/master/IshaanKamra.pdf), downloaded and read on 2026-11-10. Primary source for role dates, technical scope, skills, and reported business metrics.
 - [LinkedIn profile supplied by the user](https://www.linkedin.com/in/ishaankamra/), public search-indexed content reviewed on 2026-11-10. Direct access returned an access error; experience details were incomplete. Used for education, selected projects, contest results, and award timing only.
+- Direct user clarification in conversation on 2026-11-10: AI lab goal, peer motivation, ML starting point, study budget, and relocation preferences.

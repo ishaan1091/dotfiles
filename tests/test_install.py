@@ -1,6 +1,7 @@
 """Exercise the real installer in isolated homes and repository copies."""
 import os
 import json
+import tomllib
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,10 +15,7 @@ LINKS = {".zshrc": "shell/zshrc", ".zprofile": "shell/zprofile",
          ".gitconfig": "git/gitconfig", ".codex/AGENTS.md": "agents/AGENTS.md",
          ".claude/CLAUDE.md": "agents/AGENTS.md",
          ".config/opencode/AGENTS.md": "agents/AGENTS.md",
-         ".local/bin/install-agent-skills": "agents/install-skills.sh",
-         ".claude/memory": "agents/memory",
-         ".claude/settings.json": "agents/integrations/claude-settings.json",
-         ".config/opencode/opencode.json": "agents/integrations/opencode.json"}
+         ".local/bin/install-agent-skills": "agents/install-skills.sh"}
 GIT = '[user]\n name = Test User\n'
 
 
@@ -72,61 +70,125 @@ class InstallerTests(unittest.TestCase):
         (self.repo / 'shell/aliases').unlink()
         self.assert_rejected_unchanged()
 
-    def test_missing_memory_index(self):
-        (self.repo / 'agents/memory/MEMORY.md').unlink()
-        self.assert_rejected_unchanged()
-
-    def test_memory_links_share_writes_and_preserve_conflicts(self):
-        destination = '.claude/memory'
-        path = self.home / destination
-        path.mkdir(parents=True)
-        (path / 'original.md').write_text(destination)
-        settings = self.home / '.claude/settings.json'
-        settings.write_text('{"existing": true}\n')
+    def test_memory_is_seeded_as_independent_copies(self):
         before = snapshot(self.home)
         self.run_install('--dry-run')
         self.assertEqual(snapshot(self.home), before)
         self.run_install()
         self.assert_installed()
-        backup = next((self.home / '.local/state/dotfiles').glob('backup.*'))
-        self.assertEqual((backup / destination / 'original.md').read_text(), destination)
-        self.assertEqual((backup / '.claude/settings.json').read_text(), '{"existing": true}\n')
-        (self.home / '.claude/memory/learned.md').write_text('shared fact\n')
-        self.assertEqual((self.repo / 'agents/memory/learned.md').read_text(), 'shared fact\n')
+        source = self.repo / 'agents/memory/about-me.md'
+        for name in ('.codex/memory.md', '.config/opencode/memory.md'):
+            memory = self.home / name
+            self.assertEqual(memory.read_bytes(), source.read_bytes())
+            self.assertFalse(memory.is_symlink())
+            self.assertFalse(memory.samefile(source))
+        self.assertFalse((self.home / '.codex/memory.md').samefile(
+            self.home / '.config/opencode/memory.md'))
+        codex = tomllib.loads((self.home / '.codex/config.toml').read_text())
+        self.assertIn(str(self.home / '.codex/memory.md'), codex['developer_instructions'])
+        opencode = json.loads((self.home / '.config/opencode/opencode.json').read_text())
+        self.assertIn(str(self.home / '.config/opencode/memory.md'), opencode['instructions'])
+        self.assertFalse((self.home / '.claude/memory').exists())
+        self.assertFalse((self.home / '.claude/settings.json').exists())
+        self.assertNotIn('memory.md', (self.repo / 'agents/AGENTS.md').read_text())
+
+    def test_local_memory_edits_survive_reruns_and_seed_changes(self):
+        self.run_install()
+        seed_before = (self.repo / 'agents/memory/about-me.md').read_bytes()
+        codex = self.home / '.codex/memory.md'
+        opencode = self.home / '.config/opencode/memory.md'
+        codex.write_text('Codex learned a new fact\n')
+        opencode.write_text('OpenCode has different context\n')
+        self.assertEqual((self.repo / 'agents/memory/about-me.md').read_bytes(), seed_before)
+        (self.repo / 'agents/memory/about-me.md').write_text('New seed for future installs\n')
         before = snapshot(self.home)
-        result = self.run_install()
-        self.assertEqual(result.stdout.count('Already linked:'), len(LINKS))
+        self.run_install()
+        self.assertEqual(snapshot(self.home), before)
+        self.assertEqual(codex.read_text(), 'Codex learned a new fact\n')
+        self.assertEqual(opencode.read_text(), 'OpenCode has different context\n')
+
+    def test_memory_loading_preserves_existing_config(self):
+        (self.home / '.codex').mkdir()
+        (self.home / '.config/opencode').mkdir(parents=True)
+        original = "# keep comment\ndeveloper_instructions = '''First line\nSecond line'''\n[projects.example]\ntrust_level = 'trusted'\n"
+        (self.home / '.codex/config.toml').write_text(original)
+        (self.home / '.config/opencode/opencode.json').write_text(json.dumps(
+            {'instructions': ['custom.md'], 'theme': 'keep', 'provider': {'test': {}}}))
+        self.run_install()
+        result = (self.home / '.codex/config.toml').read_text()
+        parsed = tomllib.loads(result)
+        self.assertTrue(result.startswith('# keep comment\n'))
+        self.assertTrue(parsed['developer_instructions'].startswith('First line\nSecond line'))
+        self.assertEqual(parsed['projects'], {'example': {'trust_level': 'trusted'}})
+        other = json.loads((self.home / '.config/opencode/opencode.json').read_text())
+        self.assertEqual(other['instructions'][0], 'custom.md')
+        self.assertEqual(other['theme'], 'keep')
+        self.assertEqual(other['provider'], {'test': {}})
+        backups = list((self.home / '.local/state/dotfiles').glob('backup.memory-config.*'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual((backups[0] / '.codex/config.toml').read_text(), original)
+        before = snapshot(self.home)
+        self.run_install()
         self.assertEqual(snapshot(self.home), before)
 
-    def test_memory_configuration_points_to_shared_files(self):
-        self.run_install()
-        claude = json.loads((self.home / '.claude/settings.json').read_text())
-        claude_memory = self.home / claude['autoMemoryDirectory'].removeprefix('~/')
-        self.assertTrue(claude_memory.samefile(self.repo / 'agents/memory'))
-        opencode = json.loads((self.home / '.config/opencode/opencode.json').read_text())
-        for path in opencode['instructions']:
-            self.assertTrue(path.startswith('{env:DOTFILES_DIR}/agents/memory/'))
-            resolved = Path(path.replace('{env:DOTFILES_DIR}', str(self.repo)))
-            self.assertTrue(resolved.samefile(self.repo / 'agents/memory' / resolved.name))
-        self.assertFalse((self.home / '.agents/memory').exists())
-        # Never redirect generated Codex state into the curated folder.
-        for name in ('memories', 'memories_v2'):
-            self.assertFalse((self.home / '.codex' / name).exists())
+    def test_memory_setup_rejects_invalid_config_before_any_change(self):
+        (self.home / '.config/opencode').mkdir(parents=True)
+        (self.home / '.config/opencode/opencode.json').write_text('invalid json')
+        self.assert_rejected_unchanged()
 
-    def test_memory_paths_follow_relocated_checkout(self):
-        moved_repo = self.root / 'checkout with spaces'
-        self.repo.rename(moved_repo)
-        self.repo = moved_repo
+    def test_memory_setup_preserves_jsonc_comments_and_trailing_commas(self):
+        directory = self.home / '.config/opencode'
+        directory.mkdir(parents=True)
+        config = directory / 'opencode.jsonc'
+        original = ('{\n  // retain this comment\n  "instructions": ["custom.md", /* keep */],\n'
+                    '  "provider": {"test": {"url": "https://example.com/a,}"}},\n}\n')
+        config.write_text(original)
+        self.run_install()
+        updated = config.read_text()
+        self.assertIn('// retain this comment', updated)
+        self.assertIn('/* keep */', updated)
+        self.assertIn('https://example.com/a,}', updated)
+        self.assertIn(str(directory / 'memory.md'), updated)
+        self.assertFalse((directory / 'opencode.json').exists())
+        before = snapshot(self.home)
+        self.run_install()
+        self.assertEqual(snapshot(self.home), before)
+
+    def test_memory_setup_rejects_source_symlinks(self):
+        (self.home / '.codex').mkdir()
+        (self.home / '.codex/memory.md').symlink_to(self.repo / 'agents/memory/about-me.md')
+        self.assert_rejected_unchanged()
+
+    def test_missing_starter_memory(self):
+        (self.repo / 'agents/memory/about-me.md').unlink()
+        self.assert_rejected_unchanged()
+
+    def test_other_harness_memory_is_untouched(self):
+        directory = self.home / '.claude/memory'
+        directory.mkdir(parents=True)
+        (directory / 'notes.md').write_text('Independent existing notes\n')
+        settings = self.home / '.claude/settings.json'
+        settings.write_text('{"autoMemoryDirectory": "~/.claude/memory"}\n')
+        before = snapshot(directory)
+        self.run_install()
+        self.assertEqual(snapshot(directory), before)
+        self.assertEqual(settings.read_text(), '{"autoMemoryDirectory": "~/.claude/memory"}\n')
+
+    def test_memory_paths_support_spaces_and_relocated_checkout(self):
+        moved = self.root / 'different checkout'
+        self.repo.rename(moved)
+        self.repo = moved
+        moved = self.root / 'home with spaces'
+        self.home.rename(moved)
+        self.home = moved
         self.run_install(DOTFILES_DIR='/obsolete/checkout')
         self.assert_installed()
-        claude = json.loads((self.home / '.claude/settings.json').read_text())
-        native_path = self.home / claude['autoMemoryDirectory'][2:]
-        self.assertTrue(native_path.samefile(self.repo / 'agents/memory'))
-        opencode = json.loads((self.home / '.config/opencode/opencode.json').read_text())
-        for value in opencode['instructions']:
-            path = Path(value.replace('{env:DOTFILES_DIR}', str(self.repo)))
-            self.assertTrue(path.is_file())
-            self.assertTrue(path.samefile(self.repo / 'agents/memory' / path.name))
+        source = self.repo / 'agents/memory/about-me.md'
+        self.assertEqual((self.home / '.codex/memory.md').read_bytes(), source.read_bytes())
+        config = tomllib.loads((self.home / '.codex/config.toml').read_text())
+        self.assertIn(str(self.home / '.codex/memory.md'), config['developer_instructions'])
+        config = json.loads((self.home / '.config/opencode/opencode.json').read_text())
+        self.assertIn(str(self.home / '.config/opencode/memory.md'), config['instructions'])
 
     def test_parent_is_file(self):
         (self.home / '.codex').write_text('keep me')
@@ -141,13 +203,11 @@ class InstallerTests(unittest.TestCase):
         (self.home / '.local').write_text('keep me')
         self.assert_rejected_unchanged()
 
-    def test_parent_symlink_into_repo(self):
-        original = (self.repo / 'agents/AGENTS.md').read_bytes()
+    def test_memory_parent_symlink_into_repo_is_rejected(self):
+        original = snapshot(self.repo)
         (self.home / '.codex').symlink_to(self.repo / 'agents', target_is_directory=True)
-        self.run_install()
-        self.assert_installed()
-        self.assertEqual((self.repo / 'agents/AGENTS.md').read_bytes(), original)
-        self.assertFalse((self.repo / 'agents/AGENTS.md').is_symlink())
+        self.assert_rejected_unchanged()
+        self.assertEqual(snapshot(self.repo), original)
 
     def test_identical_git_copy_and_repeat(self):
         for name in ('.gitconfig', '.gitconfig.local'):
@@ -271,7 +331,7 @@ class InstallerTests(unittest.TestCase):
         bin_dir.mkdir()
         (bin_dir / 'dirname').symlink_to(shutil.which('dirname'))
         for command in ('curl', 'xcode-select', 'brew', 'git', 'jq', 'wget',
-                        'htop', 'gh', 'go', 'pyenv', 'node', 'code'):
+                        'htop', 'gh', 'go', 'pyenv', 'node', 'python3', 'code'):
             stub = bin_dir / command
             stub.write_text('#!/bin/bash\nexit 0\n')
             stub.chmod(0o755)
@@ -312,7 +372,7 @@ class InstallerTests(unittest.TestCase):
         (bin_dir / 'dirname').symlink_to(shutil.which('dirname'))
         # Missing ngrok guarantees at least one GUI item needs attention.
         for command in ('curl', 'xcode-select', 'git', 'jq', 'wget', 'htop',
-                        'gh', 'go', 'pyenv', 'node', 'java', 'javac', 'code'):
+                        'gh', 'go', 'pyenv', 'node', 'python3', 'java', 'javac', 'code'):
             stub = bin_dir / command
             stub.write_text('#!/bin/bash\nexit 0\n')
             stub.chmod(0o755)

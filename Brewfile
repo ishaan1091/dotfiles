@@ -1,5 +1,6 @@
 # CLI essentials installed by scripts/bootstrap.sh.
 brew "git"
+brew "python"
 brew "jq"
 brew "wget"
 brew "htop"

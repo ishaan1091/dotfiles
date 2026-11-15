@@ -4,12 +4,6 @@ These are my defaults across projects and agent harnesses (Codex, Claude Code,
 OpenCode, and similar). They are intentionally harness-neutral. Project-specific
 commands and architecture belong in that project's own `AGENTS.md`.
 
-## Shared memory
-
-- Read `$DOTFILES_DIR/agents/memory/MEMORY.md` at session start and relevant topics as needed.
-- Use that same folder for durable personal context; Claude's native auto memory
-  is configured there too. Follow its `README.md` before updating memory.
-
 ## When asked to create a plan: plan, delegate, review
 
 When asked to create a plan explicitly, then follow the
@@ -66,6 +60,8 @@ When reviewing delegated work:
 - Prefer simple, maintainable solutions and minimal dependencies.
 - Keep changes focused on the requested task.
 - Preserve existing user changes.
+- Leave the Notion page `Instinct` and everything inside it untouched; it
+  belongs to a separate assistant. Do not read, edit, move, or reorganize it.
 - Run checks appropriate to the change and report what was verified.
 - Do not commit, push, publish, deploy, or place orders unless requested.
 - Never force-push, rewrite shared history, or discard uncommitted work.
