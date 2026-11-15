@@ -268,6 +268,40 @@ class InstallerTests(unittest.TestCase):
                 self.assertEqual(result.stdout.count('Already linked:'), len(LINKS))
                 self.assertEqual(snapshot(self.home), before)
 
+    def test_retry_after_interrupted_memory_write(self):
+        bin_dir = self.root / 'fault-bin'
+        bin_dir.mkdir()
+        driver = self.root / 'interrupt-write.py'
+        driver.write_text(
+            'import os, runpy, sys\n'
+            'real_fdopen = os.fdopen\n'
+            'class InterruptedWrite:\n'
+            '    def __init__(self, stream): self.stream = stream\n'
+            '    def __enter__(self): return self\n'
+            '    def __exit__(self, *args): self.stream.close()\n'
+            '    def write(self, data):\n'
+            '        self.stream.write(data[:16])\n'
+            '        raise OSError("simulated interruption during write")\n'
+            'os.fdopen = lambda *args, **kwargs: InterruptedWrite(real_fdopen(*args, **kwargs))\n'
+            'script = sys.argv.pop(1)\n'
+            'runpy.run_path(script, run_name="__main__")\n')
+        wrapper = bin_dir / 'python3'
+        wrapper.write_text('#!/bin/bash\nexec "$REAL_PYTHON" "$FAULT_DRIVER" "$@"\n')
+        wrapper.chmod(0o755)
+        result = self.run_install(
+            expected=1, PATH=str(bin_dir) + os.pathsep + os.environ['PATH'],
+            REAL_PYTHON=sys.executable, FAULT_DRIVER=str(driver))
+        self.assertIn('simulated interruption during write', result.stderr)
+        self.assertFalse((self.home / '.codex/memory.md').exists())
+        self.assertFalse(list((self.home / '.codex').glob('.memory-write-*')))
+        self.run_install()
+        seed = (self.repo / 'agents/memory/about-me.md').read_bytes()
+        for relative in ('.codex/memory.md', '.config/opencode/memory.md'):
+            self.assertEqual((self.home / relative).read_bytes(), seed)
+        before = snapshot(self.home)
+        self.run_install()
+        self.assertEqual(snapshot(self.home), before)
+
     def test_relative_symlink(self):
         (self.home / '.aliases').symlink_to('../repo/shell/aliases')
         self.run_install()

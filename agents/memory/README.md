@@ -16,8 +16,9 @@ Python 3.11+ is required; the CLI Brewfile supplies it through bootstrap.
 
 The installer invokes `scripts/seed-agent-memory.py`. It validates the profile,
 destinations, and native configs before any installer changes, then creates
-missing copies using exclusive file creation. Existing memory files are kept
-exactly as they are. They must be regular local files, not symlinks or paths
+missing copies by publishing fully written files without overwriting existing
+files. An interrupted seed write leaves no partial destination to block a retry.
+Existing memory files are kept exactly as they are. They must be regular local files, not symlinks or paths
 inside the repository.
 
 Codex's local `developer_instructions` tells it to read its `memory.md` at

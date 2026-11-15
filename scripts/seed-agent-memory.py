@@ -144,11 +144,7 @@ def main():
     for path, before, after in plans:
         path.parent.mkdir(parents=True, exist_ok=True)
         preflight(path)
-        if before is None:
-            # Exclusive creation also protects against concurrent initialization.
-            with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
-                stream.write(after)
-        else:
+        if before is not None:
             if path.read_bytes() != before:
                 raise ValueError(f'File changed during setup; rerun: {path}')
             if backup is None:
@@ -158,15 +154,25 @@ def main():
             saved = backup / path.relative_to(target)
             saved.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, saved)
-            fd, staged = tempfile.mkstemp(prefix='.memory-config-', dir=path.parent)
-            try:
-                with os.fdopen(fd, 'wb') as stream:
-                    stream.write(after)
+        # Complete the write beside the destination before making it visible.
+        # A failed/interrupted write cannot leave a partial "existing" memory.
+        fd, staged = tempfile.mkstemp(prefix='.memory-write-', dir=path.parent)
+        try:
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(after)
+                stream.flush()
+                os.fsync(stream.fileno())
+            if before is None:
+                # Unlike replace, link refuses to overwrite a concurrent file.
+                os.link(staged, path)
+            else:
+                if path.is_symlink() or path.read_bytes() != before:
+                    raise ValueError(f'File changed during setup; rerun: {path}')
                 os.chmod(staged, stat.S_IMODE(path.stat().st_mode))
                 os.replace(staged, path)
-            finally:
-                if os.path.exists(staged):
-                    os.unlink(staged)
+        finally:
+            if os.path.exists(staged):
+                os.unlink(staged)
     if backup:
         print(f'Memory configuration backups: {backup}')
 
