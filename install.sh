@@ -33,6 +33,7 @@ links=(
   'shell/aliases:.aliases'
   'shell/utils:.utils'
   'git/gitconfig:.gitconfig'
+  'ssh/config:.ssh/config'
   'agents/AGENTS.md:.codex/AGENTS.md'
   'agents/AGENTS.md:.claude/CLAUDE.md'
   'agents/AGENTS.md:.config/opencode/AGENTS.md'
@@ -114,6 +115,25 @@ if ! already_linked "$gc" "$repo_dir/git/gitconfig"; then
   fi
 fi
 
+# Preserve existing SSH hosts locally before linking the shared configuration.
+sc="$target_dir/.ssh/config"
+preserve_ssh=false
+if ! already_linked "$sc" "$repo_dir/ssh/config"; then
+  if [[ -f "$sc" && ! -L "$sc" ]]; then
+    if [[ -e "$sc.local" || -L "$sc.local" ]]; then
+      if [[ -f "$sc.local" ]] && cmp -s -- "$sc" "$sc.local"; then
+        printf 'Existing SSH settings already preserved: %s\n' "$sc.local"
+      else
+        fail 'Existing .ssh/config and .ssh/config.local differ; merge manually. No files changed.'
+      fi
+    else
+      preserve_ssh=true
+    fi
+  elif [[ -e "$sc" || -L "$sc" ]]; then
+    fail 'Existing .ssh/config is not a regular file; preserve it in .ssh/config.local manually before retrying. No files changed.'
+  fi
+fi
+
 # Reserve a unique backup directory only when applying an actual conflict.
 # Dry runs show a placeholder because reserving a directory would mutate disk.
 backup() {
@@ -152,6 +172,12 @@ if "$preserve_git"; then
   printf 'Preserve existing Git settings in %s.local\n' "$gc"
   if "$apply"; then
     cp -p -- "$gc" "$gc.local"
+  fi
+fi
+if "$preserve_ssh"; then
+  printf 'Preserve existing SSH settings in %s.local\n' "$sc"
+  if "$apply"; then
+    cp -p -- "$sc" "$sc.local"
   fi
 fi
 for entry in "${links[@]}"; do

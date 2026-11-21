@@ -26,6 +26,7 @@ Package installation belongs to the bootstrap. Memory setup requires Python
 | `shell/aliases` | `~/.aliases` |
 | `shell/utils` | `~/.utils` |
 | `git/gitconfig` | `~/.gitconfig` |
+| `ssh/config` | `~/.ssh/config` |
 | `agents/AGENTS.md` | `~/.codex/AGENTS.md` |
 | `agents/AGENTS.md` | `~/.claude/CLAUDE.md` |
 | `agents/AGENTS.md` | `~/.config/opencode/AGENTS.md` |
@@ -102,6 +103,15 @@ or running another installer concurrently.
 
 Use `~/.zshrc.local`, `~/.zprofile.local`, and `~/.gitconfig.local` for settings
 specific to a machine. These are not managed by the repository.
+
+SSH connection settings live in `ssh/config`. The `homelab` host uses its
+Tailscale MagicDNS name; connect Tailscale first, then run `homelab` or
+`ssh homelab`. The same host name works with `scp` and SSH-based tools.
+On first install, an existing regular `~/.ssh/config` is preserved with its
+permissions as `~/.ssh/config.local` and backed up before linking. The managed
+config includes that local file for other hosts and authentication settings.
+Differing existing copies or an unmanaged config symlink stop installation
+for manual preservation; reruns leave installed links and local settings alone.
 
 ## Shared agent guidance
 

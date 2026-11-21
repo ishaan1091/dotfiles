@@ -1,0 +1,7 @@
+Host homelab
+  HostName ishaan-lenovo.taild265b2.ts.net
+  User ishaan1091
+
+# Keep machine-specific hosts and authentication settings outside the repository.
+Host *
+  Include ~/.ssh/config.local

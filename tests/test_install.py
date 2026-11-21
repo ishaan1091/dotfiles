@@ -12,7 +12,8 @@ import unittest
 REPO = Path(__file__).resolve().parents[1]
 LINKS = {".zshrc": "shell/zshrc", ".zprofile": "shell/zprofile",
          ".aliases": "shell/aliases", ".utils": "shell/utils",
-         ".gitconfig": "git/gitconfig", ".codex/AGENTS.md": "agents/AGENTS.md",
+         ".gitconfig": "git/gitconfig", ".ssh/config": "ssh/config",
+         ".codex/AGENTS.md": "agents/AGENTS.md",
          ".claude/CLAUDE.md": "agents/AGENTS.md",
          ".config/opencode/AGENTS.md": "agents/AGENTS.md",
          ".local/bin/install-agent-skills": "agents/install-skills.sh"}
@@ -228,6 +229,37 @@ class InstallerTests(unittest.TestCase):
         (self.repo / 'git/gitconfig').write_text('# ~/.gitconfig.local\n[user]\n name = Test\n')
         self.assert_rejected_unchanged()
 
+    def test_existing_ssh_config_is_preserved_and_retryable(self):
+        (self.home / '.ssh').mkdir(mode=0o700)
+        config = self.home / '.ssh/config'
+        original = 'Host existing\n  HostName existing.example\n'
+        config.write_text(original)
+        config.chmod(0o600)
+        before = snapshot(self.home)
+        self.run_install('--dry-run')
+        self.assertEqual(snapshot(self.home), before)
+        self.run_install()
+        self.assert_installed()
+        local = self.home / '.ssh/config.local'
+        self.assertEqual(local.read_text(), original)
+        self.assertEqual(local.stat().st_mode & 0o777, 0o600)
+        before = snapshot(self.home)
+        self.run_install()
+        self.assertEqual(snapshot(self.home), before)
+
+    def test_differing_ssh_copy(self):
+        (self.home / '.ssh').mkdir()
+        (self.home / '.ssh/config').write_text('Host existing\n')
+        (self.home / '.ssh/config.local').write_text('Host different\n')
+        self.assert_rejected_unchanged()
+
+    def test_ssh_symlink_requires_manual_preservation(self):
+        (self.home / '.ssh').mkdir()
+        original = self.root / 'ssh-config'
+        original.write_text('Host existing\n')
+        (self.home / '.ssh/config').symlink_to(original)
+        self.assert_rejected_unchanged()
+
     def test_dry_run_and_backup(self):
         (self.home / '.zshrc').write_text('original shell')
         (self.home / '.gitconfig').write_text(GIT)
@@ -249,11 +281,13 @@ class InstallerTests(unittest.TestCase):
         bin_dir = self.root / 'bin'
         bin_dir.mkdir()
         wrapper = bin_dir / 'ln'
-        for fail_at in ('.zshrc', '.aliases', '.gitconfig'):
+        for fail_at in ('.zshrc', '.aliases', '.gitconfig', '.ssh/config'):
             with self.subTest(fail_at=fail_at):
                 shutil.rmtree(self.home)
                 self.home.mkdir()
                 (self.home / '.gitconfig').write_text(GIT)
+                (self.home / '.ssh').mkdir()
+                (self.home / '.ssh/config').write_text('Host existing\n')
                 wrapper.write_text('#!/bin/bash\nfor arg; do last="$arg"; done\n'
                                    'if [[ "$last" = "$FAIL_DEST" ]]; then exit 1; fi\n'
                                    'exec "$REAL_LN" "$@"\n')
@@ -263,6 +297,7 @@ class InstallerTests(unittest.TestCase):
                 self.run_install()
                 self.assert_installed()
                 self.assertEqual((self.home / '.gitconfig.local').read_text(), GIT)
+                self.assertEqual((self.home / '.ssh/config.local').read_text(), 'Host existing\n')
                 before = snapshot(self.home)
                 result = self.run_install()
                 self.assertEqual(result.stdout.count('Already linked:'), len(LINKS))

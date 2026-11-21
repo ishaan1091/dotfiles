@@ -5,6 +5,7 @@ alias playground="code ~/projects/playground"
 alias ll="ls -l"
 alias la="ls -a"
 alias lla="ls -la"
+alias homelab='ssh homelab'
 
 # Edit the canonical files in the dotfiles checkout, not the installed symlinks.
 alias editrc='${EDITOR:-vim} "$DOTFILES_DIR/shell/zshrc"'
