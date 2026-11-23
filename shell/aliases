@@ -7,6 +7,13 @@ alias la="ls -a"
 alias lla="ls -la"
 alias homelab='ssh homelab'
 
+# tmux sessions: tn <name> creates one; ta <name> attaches to it.
+alias t='tmux'
+alias tn='tmux new-session -s'
+alias ta='tmux attach-session -t'
+alias tl='tmux list-sessions'
+alias td='tmux detach-client'
+
 # Edit the canonical files in the dotfiles checkout, not the installed symlinks.
 alias editrc='${EDITOR:-vim} "$DOTFILES_DIR/shell/zshrc"'
 alias editprofile='${EDITOR:-vim} "$DOTFILES_DIR/shell/zprofile"'
